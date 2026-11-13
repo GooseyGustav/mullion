@@ -1,14 +1,21 @@
 # Website concept and build brief
 
+> **Hosting revision, 13 Nov 2026.** The product page lives at
+> `https://asifthatworks.com/mullion`, on the existing site. Downloads and appcasts
+> live on `https://dl.asifthatworks.com/mullion/`. The shared license API is
+> `https://api.asifthatworks.com`. Read [`COORDINATION.md`](COORDINATION.md) before
+> deploying; it is the interface contract. The copy, page structure, and visual
+> direction below are unchanged.
+
 > Hand this file to the remote agent. It is the complete brief for the Mullion
 > marketing site. Nothing here requires an application server: the site is static
-> files on a VPS, and checkout is an outbound link to a merchant of record.
+> files on a VPS, and checkout is an outbound link to Stripe.
 
 Status: concept, pre-build. Copy is draft and can be edited; structure and technical
 constraints are the parts to follow.
 
 - Product: **Mullion**
-- Domain: **mullion.app** (placeholder until purchased)
+- URL: **`https://asifthatworks.com/mullion`** (canonical product page)
 - Repo: `github.com/GooseyGustav/mullion`
 - Price: **€14.99 one-time**, 14-day trial, all 1.x updates included
 - Audience: macOS power users who keep 15–40 windows open and want to see them
@@ -60,23 +67,25 @@ Subhead must mention "macOS" and "⌘⇥" because that is how people search.
 
 ## 2. Page structure
 
-Single long page plus four legal/utility pages. No blog at launch.
+Mullion is a product page inside the existing `asifthatworks.com` site, not a new
+domain. It reuses the site header, footer, and type, and adds:
 
 ```
-/                     landing page
-/download             versioned DMG + checksum + system requirements
-/changelog            release notes (plain HTML, one section per version)
-/activate             how to enter a license key, find your key, deactivate
-/privacy              privacy policy
-/terms                terms of sale
-/refunds              refund policy
-/imprint              Impressum (required in Germany/EU)
-/support              optional: short FAQ + email link (can be an anchor on /)
+/mullion              product page
+/mullion/download     versioned DMG + checksum + system requirements
+/mullion/changelog    release notes (plain HTML, one section per version)
+/mullion/activate     activate, recover a key, deactivate a Mac
+/mullion/thanks       post-checkout confirmation
+/apps                 catalog of shipped apps
+/privacy              privacy policy (global)
+/terms                terms of sale (global)
+/refunds              refund policy (global)
+/imprint              Impressum (global, required in Germany/EU)
 ```
 
-Navigation (top right): `Features` `Pricing` `FAQ` `Changelog` `Download`.
-A single primary button: **Buy €14.99**. When the visitor already owns Mullion,
-the menu shows `Download`.
+Navigation: keep the existing site nav and add a `Mullion` entry. Inside the product
+page, use `Features` `Pricing` `FAQ` `Changelog` `Download` and one primary button,
+**Buy €14.99**. When the visitor already owns Mullion, the menu shows `Download`.
 
 No hamburger menu on desktop; on mobile collapse to a simple stacked menu.
 
@@ -160,11 +169,11 @@ One-time purchase. Yours to keep.
 ```
 
 Under the card: "VAT included where applicable. Checkout and invoices are handled by
-Polar. Card details never touch this site."
+Stripe. Card details never touch this site."
 
-If Gumroad is used instead, replace "Polar" with "Gumroad" and keep the rest.
-
-Do **not** invent a subscription toggle, team plan, or "lifetime deal" countdown.
+Mullion is merchant-of-record direct: the site links to a Stripe Payment Link, and
+the license is issued by the service described in `COORDINATION.md`. Do **not** add
+a card form, Stripe.js, or a "lifetime deal" countdown.
 
 ### 2.7 FAQ
 
@@ -193,7 +202,7 @@ Accordion, plain `<details>` elements, crawlable:
 ### 2.8 Footer
 
 - Wordmark + one-line description
-- Download · Changelog · Support
+- `Mullion` · Download · Changelog · Activate
 - Privacy · Terms · Refunds · Imprint
 - `Mullion 1.0.0` and a `What's new` link
 - Contact email, Impressum link
@@ -282,39 +291,43 @@ web/
 └── sitemap.xml
 ```
 
-Deployed root on the VPS: `/var/www/mullion/` (see §6 for Caddy, DNS, TLS, and
-deployment commands).
+The marketing tree (`web/mullion/`) is deployed as the `/mullion` path on the
+existing `asifthatworks.com` site. Binaries, appcasts, and `latest.json` live on
+`dl.asifthatworks.com`. See `COORDINATION.md` §2 and §6.4 for the exact URL map and
+cache headers.
 
 ### Download page
 
 - Detect Apple silicon vs Intel only to recommend the right file; ship one universal
   DMG if possible, so there is nothing to choose.
 - Show: version, build number, macOS requirement, architecture, file size, SHA-256.
-- Button: `Download Mullion 1.0.0` → `/downloads/Mullion-1.0.0.dmg`.
+- Button: `Download Mullion 1.0.0` →
+  `https://dl.asifthatworks.com/mullion/Mullion-1.0.0.dmg`.
 - Secondary: `Release notes` and `Verify the signature` (collapsible block with
   `spctl` / `codesign` commands).
-- After the trial expires, the app links to `/activate`; the purchase receipt links
-  to `/download`.
+- After the trial expires, the app links to `/mullion/activate`; the purchase
+  receipt links to `/mullion/download`.
 
 ### Checkout links
 
-- Buy buttons point directly at the hosted checkout (Polar product link, or Gumroad
-  overlay). Open in the same tab; no modal, no email capture form on our side.
-- `Start free trial` scrolls to the download section or goes to `/download`.
-- Add `?utm_source=website&utm_medium=buy` only if the store supports it; do not add
-  third-party pixels.
+- Buy buttons point directly at the Stripe Payment Link for the plan. Open in the
+  same tab; no modal, no email capture form on our side, no card fields.
+- `Start free trial` scrolls to the download section or goes to `/mullion/download`.
+- Do not add third-party pixels. If campaign attribution is needed, use Stripe's
+  built-in promotion codes, not a tracker.
 
 ### SEO and metadata
 
 - `<title>Mullion — a visual ⌘⇥ window switcher for macOS</title>`
 - Description: "Replace ⌘⇥ with live window previews. Fast, keyboard-first, and
   idle when closed. One-time purchase, free 14-day trial. macOS 14+."
-- Canonical, Open Graph, Twitter card (`summary_large_image`), `og-image.png`.
+- Canonical `https://asifthatworks.com/mullion`, Open Graph, Twitter card
+  (`summary_large_image`), `og-image.png`.
 - JSON-LD `SoftwareApplication`: name, operatingSystem `macOS 14+`,
   applicationCategory `UtilitiesApplication`, offers price `14.99`, priceCurrency
-  `EUR`, `downloadUrl`.
-- `robots.txt` allows everything except `/downloads/*.dmg` if you prefer not to
-  index binaries.
+  `EUR`, `downloadUrl` on `dl.asifthatworks.com`.
+- `robots.txt` allows the public pages; the DMGs live on `dl.asifthatworks.com` and
+  are not listed in the sitemap.
 - `sitemap.xml` lists the public pages.
 
 ### Accessibility
@@ -332,8 +345,8 @@ These are content requirements, not legal advice; the owner must review them.
 - **Impressum:** legal name, postal address, email, responsible person, VAT ID if
   applicable. Required in Germany even for a one-person software site.
 - **Privacy:** what the server logs (IP, user agent, timestamp, retention), that the
-  site sets no cookies, that checkout is handled by the merchant of record, that the
-  app validates licenses with Polar/Gumroad, and the legal basis (GDPR Art. 6).
+  site sets no cookies, that checkout is handled by Stripe, that the app validates
+  licenses with `api.asifthatworks.com`, and the legal basis (GDPR Art. 6).
 - **Terms:** license grant, number of activations, update policy, no warranty beyond
   law, governing law.
 - **Refunds / withdrawal:** 14-day refund; EU right of withdrawal for digital
@@ -366,134 +379,25 @@ unfilled.
 
 ## 6. Hosting and deployment
 
-A €5/month VPS is enough. The site is static, so there is no runtime to keep alive,
-no database, and no application server to patch.
+The site is not standalone. It is part of the existing `asifthatworks.com` site, and
+the shared services are separate hostnames on the same VPS. The exact hostnames,
+URL map, ownership, cache headers, and security rules are in
+[`COORDINATION.md`](COORDINATION.md).
 
-### Server
+In short:
 
-- Ubuntu 24.04 LTS, 1 vCPU, 1 GB RAM, 20 GB disk (Hetzner CX22, Vultr, or similar)
-- IPv4 + IPv6
-- DNS: `A @ → <IPv4>`, `AAAA @ → <IPv6>`, `CNAME www → @`
+- `asifthatworks.com` keeps its current server and deploy pipeline; Mullion is added
+  as `/mullion`, not as a new root site. The website agent owns this.
+- `dl.asifthatworks.com` is a static root (`/var/www/dl`) for versioned DMGs,
+  `latest.json`, and `appcast.xml`, served by the same Caddy/nginx with immutable
+  caching for versioned files and `no-cache` for the manifests.
+- `api.asifthatworks.com` and `admin.asifthatworks.com` reverse-proxy to the Go
+  service on `127.0.0.1:8080`. The app agent owns these blocks.
+- `portfolio.asifthatworks.com` is untouched.
 
-### First-time setup
-
-```bash
-# as root, once
-adduser deploy
-usermod -aG sudo deploy
-rsync --archive --chown=deploy:deploy ~/.ssh/authorized_keys /home/deploy/.ssh/
-```
-
-Harden SSH in `/etc/ssh/sshd_config.d/99-mullion.conf`:
-
-```
-PermitRootLogin no
-PasswordAuthentication no
-KbdInteractiveAuthentication no
-```
-
-```bash
-systemctl restart ssh
-apt update && apt upgrade -y
-apt install -y ufw unattended-upgrades
-ufw allow OpenSSH
-ufw allow 80/tcp
-ufw allow 443/tcp
-ufw enable
-dpkg-reconfigure -plow unattended-upgrades
-```
-
-Install Caddy from the official repository, then:
-
-```bash
-mkdir -p /var/www/mullion/downloads
-chown -R deploy:deploy /var/www/mullion
-```
-
-### `/etc/caddy/Caddyfile`
-
-```caddyfile
-mullion.app {
-    root * /var/www/mullion
-    encode zstd gzip
-
-    @appcast path /appcast.xml
-    header @appcast Cache-Control "no-cache"
-
-    @dmg path /downloads/*.dmg
-    header @dmg Content-Type "application/x-apple-diskimage"
-    header @dmg Cache-Control "public, max-age=31536000, immutable"
-
-    @sha path /downloads/*.sha256
-    header @sha Cache-Control "no-cache"
-
-    @assets path /assets/*
-    header @assets Cache-Control "public, max-age=604800"
-
-    header {
-        Strict-Transport-Security "max-age=31536000; includeSubDomains"
-        X-Content-Type-Options "nosniff"
-        Referrer-Policy "strict-origin-when-cross-origin"
-        Permissions-Policy "camera=(), microphone=(), geolocation=()"
-        Content-Security-Policy "default-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'self'"
-    }
-
-    file_server
-}
-
-www.mullion.app {
-    redir https://mullion.app{uri} permanent
-}
-```
-
-`caddy reload --config /etc/caddy/Caddyfile` after edits. TLS certificates are
-provisioned automatically; port 80 must stay open for the ACME challenge.
-
-The CSP assumes external CSS/JS only. If the remote agent inlines styles, the policy
-must be widened — prefer fixing the markup over weakening the policy.
-
-### Deploy
-
-```bash
-rsync -avz --delete --exclude 'downloads/' web/ deploy@mullion.app:/var/www/mullion/
-rsync -avz dist/Mullion-1.0.0.dmg dist/Mullion-1.0.0.dmg.sha256 \
-  deploy@mullion.app:/var/www/mullion/downloads/
-```
-
-- `--delete --exclude downloads/` keeps old DMGs available for rollback.
-- Generate the checksum with `shasum -a 256 dist/Mullion-1.0.0.dmg`.
-- Never edit files directly on the server; the repo is the source of truth and the
-  VPS is a deploy target.
-- Do not put the DMG in git. Upload it separately.
-
-### Smoke test after every deploy
-
-```bash
-curl -I https://mullion.app/
-curl -I https://mullion.app/appcast.xml            # 200, application/xml, no-cache
-curl -I https://mullion.app/downloads/Mullion-1.0.0.dmg
-curl -s https://mullion.app/downloads/Mullion-1.0.0.dmg | shasum -a 256
-curl -sI http://mullion.app/ | head -1             # 308 to https
-curl -s https://mullion.app/robots.txt
-```
-
-### Backups and monitoring
-
-- The site and appcast are in git; the only server-side originals are the DMGs.
-  Keep a copy of `dist/` locally and in object storage.
-- Weekly `restic`/`borg` backup of `/var/www/mullion` if you keep anything there that
-  is not reproducible.
-- External uptime check (BetterStack free tier, Uptime Kuma, or a cron `curl` from
-  another machine) on `/` and `/appcast.xml`.
-- Email: use a hosted provider (Fastmail, Migadu, Zoho) for `support@mullion.app`.
-  Do not run a mail server on the VPS.
-
-### Cloudflare (optional)
-
-Only add it after the origin works. Keep TLS mode **Full (strict)**, cache `/assets/*`
-and downloads, and bypass cache for `/appcast.xml` and `/download` so customers are
-never served a stale version. If Cloudflare's caching causes confusion, turn it off;
-the origin is already fast for static files.
+Do not take over the root of `asifthatworks.com`, and do not change the live server
+config without a backup and a rollback command. Once the existing stack is known,
+this section will be replaced with the exact Caddy/nginx snippet and deploy commands.
 
 ## 7. Definition of done
 

@@ -1,55 +1,71 @@
 # Launch playbook
 
 Mullion is distributed **outside the Mac App Store**, signed with a Developer ID,
-notarized by Apple, and updated with Sparkle. Sales go through a merchant of record
-(Polar by default, Gumroad as the low-effort fallback), and the website is a static
-site on your own VPS.
+notarized by Apple, and updated with Sparkle. Sales go through **Stripe directly**:
+you are the merchant of record. Licenses are issued by a **self-hosted Go + SQLite
+service** on the same VPS, with a small admin dashboard. The product page is part of
+the existing `asifthatworks.com` site.
 
-This document is the order of operations. Each step assumes the previous one.
+The complete commerce and hosting contract is [`COORDINATION.md`](COORDINATION.md);
+the service implementation notes are in [`../server/README.md`](../server/README.md).
+This document is the app-release order of operations. Each step assumes the previous
+one.
 
 | | |
 |---|---|
 | Bundle ID | `com.kyanhpham.mullion` |
 | Team ID | `NZJ6XP9B66` |
 | Signing (local) | `Apple Development: Ky Anh Pham (W99V9DN93Y)` |
-| Signing (release) | `Developer ID Application: …` — **not created yet** |
+| Signing (release) | `Developer ID Application: Ky Anh Pham (NZJ6XP9B66)` — exported |
 | Minimum macOS | 14.0 |
-| Website | `docs/WEBSITE.md` |
+| Product page | `https://asifthatworks.com/mullion` |
+| Downloads | `https://dl.asifthatworks.com/mullion/` |
+| License API | `https://api.asifthatworks.com` (frozen) |
+| Website brief | `docs/WEBSITE.md` |
+| Contract | `docs/COORDINATION.md` |
 
 ## 0. Where things stand
 
 Done:
 
-- app, glass panel, uniform grid, thumbnails, ⌘⇥ event tap, window close
+- app, glass panel, uniform grid, thumbnails, ⌘⇥ event tap, hover traffic lights
 - bundle ID and name finalized, hardened runtime on
 - `xcodegen` project builds and installs as `/Applications/Mullion.app`
+- Developer ID Application certificate exported and test-signed
+- release script, website brief, coordination contract
+- license service foundation in `server/` (key format, `LIC1` signer, tests)
 
 Missing before a paid release:
 
 - [ ] custom app icon (the generic executable icon is not sellable)
-- [ ] Developer ID Application certificate
-- [ ] notarization credentials
+- [ ] notarization credentials (`mullion-notary`) — blocked by Apple agreement 403 until accepted
+- [ ] Accessibility + Screen Recording granted for `com.kyanhpham.mullion`
 - [ ] Sparkle 2 integration + EdDSA keys
-- [ ] trial + license UI, `LicenseService`
+- [ ] trial + license UI, `LicenseManager`
+- [ ] license service MVP deployed (`api.asifthatworks.com`)
+- [ ] Stripe test/live products, prices, Payment Links
 - [ ] version bumped to `1.0.0`
 - [ ] website, legal pages, checkout
-- [ ] one real purchase + refund test
+- [ ] one real purchase + refund + refresh-410 test
 
-## 1. Lock these decisions first
+## 1. Locked decisions
 
 These are expensive to change after people buy, because TCC grants and licenses are
 keyed to them.
 
-1. **Bundle ID**: `com.kyanhpham.mullion`. Do not change it now.
-2. **Price**: €14.99 / $14.99 one-time, all 1.x updates included, 14-day trial.
-   One-time is right for a utility in a category where AltTab is free. Bundling a
-   year of updates is a defensible middle ground, but keep v1 simple: one price,
-   lifetime license. Raise it later for new buyers if the app earns it.
-3. **Store**: Polar (≈5% + 50¢, merchant of record, license keys) or Gumroad
-   (10% + 50¢ + card processing ≈ 17–20% effective, simplest license API). Both
-   handle VAT and refunds. Pick before writing `LicenseService`; the interface is
-   the same, the request body is not.
-4. **Domain**: e.g. `mullion.app`. Buy it before you announce anything.
+1. **Bundle ID**: `com.kyanhpham.mullion`. Do not change it.
+2. **Price**: €14.99 one-time, 14-day trial, 3 seats, free 1.x updates (`major: 1`),
+   paid 2.0. One-time is right for a utility in a category where AltTab is free.
+3. **Commerce**: Stripe directly (merchant of record), one Stripe account for all
+   products. Stripe Payment Links for checkout; the VPS is never in the purchase
+   path. Stripe Tax calculates, but VAT/OSS registration and filing remain the
+   owner's responsibility.
+4. **Licensing**: self-hosted Go + SQLite service at `api.asifthatworks.com`.
+   Keys `MULL-…`, signed `LIC1` envelopes, Ed25519 offline verification, random
+   `install_id`, 30-day offline grace on network failure. No Polar, no Gumroad.
+5. **URLs**: product page `https://asifthatworks.com/mullion`, artifacts on
+   `dl.asifthatworks.com`, API on `api.asifthatworks.com`, dashboard on
+   `admin.asifthatworks.com`. `mullion.app` is not owned — do not use it.
 
 ## 2. Certificates
 
@@ -259,7 +275,7 @@ call `SPUStandardUpdaterController` which is enough for this app. Add to
 
 ```xml
 <key>SUFeedURL</key>
-<string>https://mullion.app/appcast.xml</string>
+<string>https://dl.asifthatworks.com/mullion/appcast.xml</string>
 <key>SUPublicEDKey</key>
 <string>REPLACE_WITH_PUBLIC_KEY</string>
 <key>SUEnableAutomaticChecks</key>
@@ -284,8 +300,8 @@ not in the repo.
 
 ```bash
 ./bin/generate_appcast \
-  --download-url-prefix "https://mullion.app/downloads/" \
-  --link "https://mullion.app" \
+  --download-url-prefix "https://dl.asifthatworks.com/mullion/" \
+  --link "https://asifthatworks.com/mullion" \
   -o appcast.xml dist/
 ```
 
@@ -320,8 +336,8 @@ survive (they do, because the signing identity and bundle ID are unchanged).
 
 ## 8. Trial and licensing
 
-The store sells a key; the app decides what a key is worth. Keep the store behind a
-protocol so switching from Gumroad to Polar is a small change:
+There is no Mac App Store receipt. Licenses come from the self-hosted service at
+`api.asifthatworks.com` (see `COORDINATION.md` §6 and `server/README.md`).
 
 ```swift
 enum LicenseStatus: Equatable {
@@ -332,94 +348,95 @@ enum LicenseStatus: Equatable {
     case unreachable(lastChecked: Date)   // offline grace
 }
 
-protocol LicenseService {
-    func activate(key: String) async throws -> LicenseStatus
-    func refresh() async -> LicenseStatus
+protocol LicenseProviding {
+    func activate(key: String, installID: String) async throws -> LicenseEnvelope
+    func refresh(key: String, installID: String) async throws -> LicenseEnvelope
+    func deactivate(key: String, installID: String) async throws
 }
 ```
 
 Behaviour:
 
-- **14-day trial** from first launch. Store the date in the Keychain and mirror it in
-  Application Support; check both and use the earlier one. This is not DRM, just a
-  speed bump for honest users.
-- **Activation**: one POST, store the key in the Keychain and a `verifiedAt` date.
-  Cache `licensed` with a 30-day offline grace; re-validate in the background at most
-  once a day. Never block the switcher on the network.
-- **Refund / chargeback**: the next successful refresh flips to `invalid`. Do not
-  delete the user's data or nag mid-session; show the license window at next launch.
-- **Clock rollback**: if the system clock is earlier than the last check, keep the
-  last known status and ignore the trial counter for that launch.
-- **Failure**: if the network is down, honour the grace period. An app that stops
-  working on a plane is worse than a pirated copy.
-
-### Polar
-
-Validate with the key and your organization ID. The response has `status`
-(`granted`), `expires_at`, and usage counters. Activation IDs are optional unless
-you want per-machine limits; for a one-time desktop license, one key per purchase
-with `limit_activations` set to 3 and no activation tracking is enough.
-
-```
-POST https://api.polar.sh/v1/customer-portal/license-keys/validate
-Content-Type: application/json
-
-{ "key": "…", "organization_id": "…", "conditions": { "major_version": 1 } }
-```
-
-### Gumroad
-
-One POST, form-encoded:
-
-```
-POST https://api.gumroad.com/v2/licenses/verify
-product_id=…&license_key=…
-```
-
-Check `success`, then reject when `purchase.refunded` or
-`purchase.chargebacked` is true. `uses` is informational.
+- **14-day trial** from first launch. Store the date in Keychain and mirror it in
+  Application Support; use the earlier one. If the clock moves back more than 24
+  hours, keep the last known state.
+- **Install identity**: `install_id` is a random 32-byte hex value generated once and
+  stored in Keychain. No hardware UUID or serial number leaves the Mac.
+- **Activation**: `POST /v1/activate` with the normalized key and `install_id`.
+  Verify the `LIC1` envelope offline with the embedded Ed25519 public key. Store the
+  envelope and key in Keychain. 3 seats.
+- **Refresh**: revalidate lazily (at most once a day). One-time licenses may refresh
+  opportunistically; subscriptions refresh to extend `expires_at`.
+- **Offline**: if the network is down, honour the last valid envelope for up to
+  **30 days**. Never block the switcher on the network.
+- **Revocation**: a server `410 revoked|expired` means invalid now — show the license
+  window at next launch, not mid-session. Do not delete user data.
+- **Deactivation**: `POST /v1/deactivate` frees a seat.
 
 ### What not to build
 
 - No account system, no password, no email verification inside the app.
-- No card data anywhere near the app or your VPS. The hosted checkout owns that.
-- No phone-home heartbeat. Activate once, re-validate lazily.
+- No card data, Stripe secrets, or license private keys in the app or on the
+  website. Stripe Checkout is hosted; the server is the only Stripe integration.
+- No phone-home heartbeat. No hardware fingerprinting.
 
-A determined person can patch the check. That is true of every Mac utility. Optimise
-for the paying customer: paste key, unlock, never think about it again.
+A determined person can patch the check. Optimise for the paying customer: paste key,
+unlock, never think about it again.
 
-## 9. Store setup
+## 9. Stripe and license service
 
-### Polar (recommended)
+Stripe is the merchant of record. You are responsible for VAT/OSS registration and
+filing; Stripe Tax calculates but does not file.
 
-1. Create the organization, complete payout and tax details.
-2. Product: **Mullion**, one-time, €14.99, digital download.
-3. Enable **license keys** as a benefit; set activation limit 3.
-4. Attach the DMG as the download, or just link the website download (simpler: one
-   download URL to update).
-5. Copy the checkout link into the site's Buy button.
-6. Enable the customer portal (receipts, refunds, key retrieval).
-7. Set the refund policy to match your website (e.g. 14 days, no questions).
+### Stripe
 
-### Gumroad (fastest)
+1. Confirm business details and Stripe Tax. Enable the Customer Portal.
+2. Create test-mode products and prices:
+   - **Mullion** (`product_id: mullion`, `plan: pro`, `prefix: MULL`): €14.99
+     one-time, 3 seats, 14-day trial in the app.
+   - **Fat Cat Pomodoro** (`product_id: fatcatpomodoro`, `prefix: FATC`): plan and
+     price TBD (see `COORDINATION.md` §5). Do not create until confirmed.
+3. Create one Payment Link per price with `client_reference_id=<product>:<plan>`,
+   metadata `product_id`, `plan_id`, `seats`, `channel=direct`, success URL
+   `https://asifthatworks.com/<product>/thanks?session_id={CHECKOUT_SESSION_ID}`.
+4. Add the endpoint `https://api.asifthatworks.com/webhooks/stripe` and subscribe to
+   `checkout.session.completed`, `invoice.paid`, `invoice.payment_failed`,
+   `customer.subscription.updated`, `customer.subscription.deleted`,
+   `charge.refunded`, `charge.dispute.created`.
+5. Put the Payment Links in `web/links.json` (no secrets). Buy buttons are plain
+   `<a>` links; the VPS is never in the purchase path.
+6. Run a real test purchase → key email → activate → refund → refresh returns 410.
 
-1. Product: digital, one-time price, "Generate a unique license key per sale" on.
-2. Copy the product ID (not the permalink) for the verify call.
-3. Use the Gumroad checkout overlay or link out. Direct sales are 10% + 50¢; sales
-   through Discover are 30%, so link directly.
-4. Turn on the receipt/refund settings and test a real purchase.
+### License service
 
-### Before you announce
+Implementation: `server/` (Go 1.27, pure-Go SQLite, single binary). Contract:
+`COORDINATION.md`.
 
-Buy your own product with a real card, receive the key, activate on a clean account,
-request a refund, confirm the key stops validating. That single loop catches most
-launch-day support tickets.
+- Binds to `127.0.0.1:8080`; Caddy/nginx terminates TLS on `api.asifthatworks.com`
+  and `admin.asifthatworks.com`.
+- Stores only key hashes and AES-GCM ciphertexts, never plaintext keys or card data.
+- Verifies `Stripe-Signature`; uses event IDs for idempotency.
+- Sends license email via Resend (SPF/DKIM/DMARC on `asifthatworks.com`).
+- Admin dashboard: basic auth + optional IP allowlist, never linked publicly.
+
+Deploy target: the existing Hostinger VPS, in its own folder (e.g.
+`/srv/mullion-license`), managed by systemd, secrets in `/etc/mullion/license.env`
+mode 600. Do not hand-edit live web server config without a backup and rollback.
 
 ## 10. Website and VPS
 
-Full setup lives in [`WEBSITE.md`](WEBSITE.md). The short version: Caddy serving a
-static directory, the versioned DMG, `appcast.xml`, and the legal pages; checkout is
-an outbound link to Polar or Gumroad. No application server and no database.
+Marketing is part of the existing `asifthatworks.com` site. Full setup lives in
+[`WEBSITE.md`](WEBSITE.md) and [`COORDINATION.md`](COORDINATION.md).
+
+- `https://asifthatworks.com/mullion` — product page, download, changelog, activate
+- `https://asifthatworks.com/apps` — catalog
+- `https://dl.asifthatworks.com/mullion/` — versioned DMGs, `latest.json`,
+  `appcast.xml` (immutable DMGs, `no-cache` manifests)
+- `https://api.asifthatworks.com` — license API and Stripe webhook
+- `https://admin.asifthatworks.com` — dashboard
+
+Static files, no card fields, no third-party scripts. The existing site server and
+deploy pipeline own the marketing pages; the license service is a separate process.
 
 ## 11. Release checklist
 
@@ -428,20 +445,19 @@ an outbound link to Polar or Gumroad. No application server and no database.
 [ ] app icon present at all required sizes
 [ ] README and in-app About show the right version
 [ ] xcodegen generate
-[ ] Release archive builds clean, no warnings that matter
-[ ] lipo shows expected architectures
+[ ] Release archive builds clean
 [ ] codesign --verify --deep --strict passes
 [ ] notarization Accepted, app stapled, DMG stapled
 [ ] spctl accepts the DMG on a clean account
-[ ] first-run flow grants Accessibility + Screen Recording, restart works
-[ ] ⌘⇥ works on a fresh user, thumbnails appear, × and ⌘W close
-[ ] trial timer starts, key activates, expired state shows the buy link
-[ ] website download URL points at this DMG
-[ ] appcast.xml published, one older install updates to this build
-[ ] privacy, terms, refund, imprint pages live
-[ ] checkout test purchase + refund done
-[ ] backup of Sparkle private key, notarization profile documented
-[ ] old version kept available for rollback
+[ ] TCC granted on clean account (Accessibility + Screen Recording), restart works
+[ ] ⌘⇥ works, thumbnails appear, traffic lights close/minimize/zoom
+[ ] trial timer starts, key activates, expired state shows buy link
+[ ] test purchase → key email → activate → deactivate → refund → refresh 410
+[ ] DMG and checksums on dl.asifthatworks.com, latest.json/appcast no-cache
+[ ] website download and buy links point at this release
+[ ] privacy, terms, refund, imprint pages live and reviewed
+[ ] Sparkle private key backed up offline
+[ ] old DMG kept available for rollback
 ```
 
 ## 12. Costs
@@ -449,14 +465,14 @@ an outbound link to Polar or Gumroad. No application server and no database.
 | Item | Cost |
 |---|---|
 | Apple Developer Program | €99/year (already paid) |
-| Domain | ~€10–15/year |
-| VPS | ~€5/month (1 vCPU, 1 GB is plenty for static files) |
-| TLS | free (Let's Encrypt via Caddy) |
-| Store | ~5% + 50¢ (Polar) or ~17–20% (Gumroad) |
+| Existing domain / VPS | already paid |
+| TLS | free (Let's Encrypt) |
+| Stripe | ~1.5% + €0.25 EEA cards (+1.5% international, +0.5% Stripe Tax) |
+| Email (Resend) | free tier, then small |
 | Notarization | free |
 
-The real recurring cost is support: two TCC dialogs, a restart, and Gatekeeper
-questions. Put those answers on the website and in the app's first-run text.
+You are the merchant of record: budget for VAT/OSS compliance. The real recurring
+cost is support: TCC dialogs, restart, Gatekeeper, and license recovery.
 
 ## 13. Support answers to have ready
 
@@ -470,6 +486,9 @@ questions. Put those answers on the website and in the app's first-run text.
   check the menu bar item shows Accessibility granted.
 - **"How do I uninstall?"** — quit, drag to Trash, optionally remove
   `~/Library/Logs/Mullion.log`; permissions disappear with the app.
+- **"Where is my license key?"** — check the purchase email, or use
+  `asifthatworks.com/mullion/activate` to resend. Support can recover or reissue from
+  the admin dashboard.
 
 ## 14. Do not do
 
@@ -478,4 +497,7 @@ questions. Put those answers on the website and in the app's first-run text.
 - Do not ship an ad-hoc signed build; TCC grants break on every rebuild.
 - Do not notarize with `--deep` signing or skip `--timestamp`.
 - Do not rewrite a published DMG or reuse a build number.
-- Do not put Stripe secret keys, license databases, or card data on the VPS.
+- Do not put Stripe secret keys, license databases, or card data on the website.
+- Do not move `api.asifthatworks.com` after apps ship; it is frozen. Use a 308
+  redirect and an app update only as a last resort.
+- Do not hand-edit the live VPS web server config without a backup and rollback.
