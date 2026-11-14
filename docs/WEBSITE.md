@@ -3,7 +3,7 @@
 > **Hosting revision, 13 Nov 2026.** The product page lives at
 > `https://asifthatworks.com/mullion`, on the existing site. Downloads and appcasts
 > live on `https://dl.asifthatworks.com/mullion/`. The shared license API is
-> `https://api.asifthatworks.com`. Read [`COORDINATION.md`](COORDINATION.md) before
+> `https://api.asifthatworks.com`. Read the shared [coordination contract](https://github.com/GooseyGustav/asifthatworks-licensing/blob/main/docs/COORDINATION.md) before
 > deploying; it is the interface contract. The copy, page structure, and visual
 > direction below are unchanged.
 
@@ -172,7 +172,7 @@ Under the card: "VAT included where applicable. Checkout and invoices are handle
 Stripe. Card details never touch this site."
 
 Mullion is merchant-of-record direct: the site links to a Stripe Payment Link, and
-the license is issued by the service described in `COORDINATION.md`. Do **not** add
+the license is issued by the shared service (`api.asifthatworks.com`, see the [coordination contract](https://github.com/GooseyGustav/asifthatworks-licensing/blob/main/docs/COORDINATION.md)). Do **not** add
 a card form, Stripe.js, or a "lifetime deal" countdown.
 
 ### 2.7 FAQ
@@ -293,8 +293,7 @@ web/
 
 The marketing tree (`web/mullion/`) is deployed as the `/mullion` path on the
 existing `asifthatworks.com` site. Binaries, appcasts, and `latest.json` live on
-`dl.asifthatworks.com`. See `COORDINATION.md` §2 and §6.4 for the exact URL map and
-cache headers.
+`dl.asifthatworks.com`. See the [coordination contract](https://github.com/GooseyGustav/asifthatworks-licensing/blob/main/docs/COORDINATION.md) §2 and §6.4 for the exact URL map and cache headers.
 
 ### Download page
 
@@ -382,7 +381,7 @@ unfilled.
 The site is not standalone. It is part of the existing `asifthatworks.com` site, and
 the shared services are separate hostnames on the same VPS. The exact hostnames,
 URL map, ownership, cache headers, and security rules are in
-[`COORDINATION.md`](COORDINATION.md).
+[`asifthatworks-licensing/docs/COORDINATION.md`](https://github.com/GooseyGustav/asifthatworks-licensing/blob/main/docs/COORDINATION.md).
 
 In short:
 

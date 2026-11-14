@@ -6,8 +6,9 @@ you are the merchant of record. Licenses are issued by a **self-hosted Go + SQLi
 service** on the same VPS, with a small admin dashboard. The product page is part of
 the existing `asifthatworks.com` site.
 
-The complete commerce and hosting contract is [`COORDINATION.md`](COORDINATION.md);
-the service implementation notes are in [`../server/README.md`](../server/README.md).
+The complete commerce and hosting contract is in the shared license repo:
+[`asifthatworks-licensing/docs/COORDINATION.md`](https://github.com/GooseyGustav/asifthatworks-licensing/blob/main/docs/COORDINATION.md).
+Service implementation: [`asifthatworks-licensing`](https://github.com/GooseyGustav/asifthatworks-licensing).
 This document is the app-release order of operations. Each step assumes the previous
 one.
 
@@ -22,7 +23,7 @@ one.
 | Downloads | `https://dl.asifthatworks.com/mullion/` |
 | License API | `https://api.asifthatworks.com` (frozen) |
 | Website brief | `docs/WEBSITE.md` |
-| Contract | `docs/COORDINATION.md` |
+| Contract | [`asifthatworks-licensing/docs/COORDINATION.md`](https://github.com/GooseyGustav/asifthatworks-licensing/blob/main/docs/COORDINATION.md) |
 
 ## 0. Where things stand
 
@@ -337,7 +338,7 @@ survive (they do, because the signing identity and bundle ID are unchanged).
 ## 8. Trial and licensing
 
 There is no Mac App Store receipt. Licenses come from the self-hosted service at
-`api.asifthatworks.com` (see `COORDINATION.md` §6 and `server/README.md`).
+`api.asifthatworks.com` (see the [coordination contract](https://github.com/GooseyGustav/asifthatworks-licensing/blob/main/docs/COORDINATION.md) §6).
 
 ```swift
 enum LicenseStatus: Equatable {
@@ -395,7 +396,7 @@ filing; Stripe Tax calculates but does not file.
    - **Mullion** (`product_id: mullion`, `plan: pro`, `prefix: MULL`): €14.99
      one-time, 3 seats, 14-day trial in the app.
    - **Fat Cat Pomodoro** (`product_id: fatcatpomodoro`, `prefix: FATC`): plan and
-     price TBD (see `COORDINATION.md` §5). Do not create until confirmed.
+     price TBD (see the [coordination contract](https://github.com/GooseyGustav/asifthatworks-licensing/blob/main/docs/COORDINATION.md) §5). Do not create until confirmed.
 3. Create one Payment Link per price with `client_reference_id=<product>:<plan>`,
    metadata `product_id`, `plan_id`, `seats`, `channel=direct`, success URL
    `https://asifthatworks.com/<product>/thanks?session_id={CHECKOUT_SESSION_ID}`.
@@ -409,8 +410,8 @@ filing; Stripe Tax calculates but does not file.
 
 ### License service
 
-Implementation: `server/` (Go 1.27, pure-Go SQLite, single binary). Contract:
-`COORDINATION.md`.
+Implementation: [`asifthatworks-licensing`](https://github.com/GooseyGustav/asifthatworks-licensing) (Go, pure-Go SQLite, single binary). Contract:
+[`asifthatworks-licensing/docs/COORDINATION.md`](https://github.com/GooseyGustav/asifthatworks-licensing/blob/main/docs/COORDINATION.md).
 
 - Binds to `127.0.0.1:8080`; Caddy/nginx terminates TLS on `api.asifthatworks.com`
   and `admin.asifthatworks.com`.
@@ -425,8 +426,8 @@ mode 600. Do not hand-edit live web server config without a backup and rollback.
 
 ## 10. Website and VPS
 
-Marketing is part of the existing `asifthatworks.com` site. Full setup lives in
-[`WEBSITE.md`](WEBSITE.md) and [`COORDINATION.md`](COORDINATION.md).
+Marketing is part of the existing `asifthatworks.com` site. Full setup lives in [`WEBSITE.md`](WEBSITE.md) and the shared
+[`coordination contract`](https://github.com/GooseyGustav/asifthatworks-licensing/blob/main/docs/COORDINATION.md).
 
 - `https://asifthatworks.com/mullion` — product page, download, changelog, activate
 - `https://asifthatworks.com/apps` — catalog
