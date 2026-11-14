@@ -11,28 +11,65 @@ product-specific license server.
 
 ## Endpoints
 
-| Environment | Base URL | Service |
-|---|---|---|
-| Production (frozen) | `https://api.asifthatworks.com` | `127.0.0.1:8090` |
-| Staging | `https://staging.api.asifthatworks.com` | `127.0.0.1:8091` (verified locally) |
+| Environment | Base URL | Service | Status |
+|---|---|---|---|
+| Production (frozen) | `https://api.asifthatworks.com` | `127.0.0.1:8090` | DNS/TLS live, **service is still a placeholder** |
+| Staging | `https://staging.api.asifthatworks.com` | `127.0.0.1:8091` | **Live** (verified locally) |
+
+Use **staging** for all integration and testing until production is switched.
 
 - `POST /v1/activate`
 - `POST /v1/refresh` (returns `410` on revoked/expired)
 - `POST /v1/deactivate`
-- `POST /v1/recover` (alias `/v1/resend`, always 202)
+- `POST /v1/recover` (alias `/v1/resend`)
 - `GET /v1/public-key?product=<id>`
 - `GET /v1/session/{stripe_session_id}` (success-page lookup)
 - `GET /healthz`
+- `POST /webhooks/stripe`
 
-Use **staging** for sandbox keys and integration testing.
+Envelope: `LIC1.<payload_b64url>.<signature_b64url>` (Ed25519 over the exact payload
+bytes). Verify with the product public key. 30-day offline grace on network failure.
+
+**Activate request**
+```json
+{
+  "license_key": "MULL-XXXXX-XXXXX-XXXXX-XXXXX",
+  "install_id": "<random 64 hex stored in Keychain>",
+  "device_name": "optional",
+  "os_version": "15.1",
+  "app_version": "0.2.0"
+}
+```
+
+**Activate response**
+```json
+{
+  "token": "LIC1....",
+  "license": {
+    "id": "lic_...",
+    "product": "mullion",
+    "plan": "pro",
+    "status": "active",
+    "seats": 3,
+    "activations": 1,
+    "major": 1,
+    "expires_at": null,
+    "issued_at": "2026-11-13T20:11:10Z"
+  },
+  "billing_url": null
+}
+```
 
 ## Mullion product config
 
 | Field | Value |
 |---|---|
-| `product` | `mullion` |
+| `product_id` | `mullion` |
 | Key prefix | `MULL` |
-| Plan | `pro` (one-time, 3 seats, `major: 1`, 14-day trial in app) |
+| Bundle ID | `com.kyanhpham.mullion` |
+| URL scheme | `mullion://` |
+| Trial | 14 days |
+| Plan | `pro` (one-time, 3 seats, `major: 1`) |
 | `kid` | `mull-2026-01` |
 | Public key (Ed25519, base64url) | `HLmuY4Pcli5XDVFTwZOe5II4ouW8bNIIZMPaU5dHaO0` |
 
@@ -42,14 +79,18 @@ failure allows 30-day offline grace only.
 
 ## Staging sandbox (verified)
 
-- License key: `MULL-9LWFS-U9X3C-RJTN3-8Y37T`
+- License key (staging only): `MULL-9LWFS-U9X3C-RJTN3-8Y37T`
 - Seed session: `seed_mullion`, plan `pro`, 3 seats, active
 - Verified on staging: `healthz`, `public-key`, session lookup, activate/refresh
 
-**Caveats:** sandbox key is for staging only. Live Stripe test-mode end-to-end
-(real test purchase → webhook issuance/email) still depends on the public staging
-webhook being reachable and Stripe test products/prices/webhook configured.
-Production `8090` service was not changed.
+**Do not ship sandbox keys in a real build.** Test activation, refresh, deactivate,
+wrong product, wrong key, seat limit, revoked `410`, and offline grace.
+
+**Caveats:** Production `8090` is still a placeholder (DNS/TLS live). Live Stripe
+test-mode end-to-end (real test purchase → webhook issuance/email) depends on the
+test webhook pointing at `https://staging.api.asifthatworks.com/webhooks/stripe`
+(or production once live) and Stripe test products/prices/webhook being configured;
+sandbox keys work without it.
 
 ## App URLs
 
