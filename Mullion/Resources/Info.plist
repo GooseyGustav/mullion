@@ -35,6 +35,14 @@
 			</array>
 		</dict>
 	</array>
+	<key>SUFeedURL</key>
+	<string>https://dl.asifthatworks.com/mullion/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>iUEgTooBIbo2p+SYAP6LPPxLR+yWMw/Fh4GiDQUHlmY=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUAutomaticallyUpdate</key>
+	<false/>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>

@@ -1,6 +1,7 @@
 import AppKit
 import Carbon.HIToolbox
 import ScreenCaptureKit
+import Sparkle
 
 /// Composition root: owns the long-lived objects and wires them together.
 ///
@@ -17,6 +18,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var screenRecordingItem: NSMenuItem?
     private var licenseItem: NSMenuItem?
     private var licenseWindowController: LicenseWindowController?
+    private let updaterController = SPUStandardUpdaterController(startingUpdater: true,
+                                                                 updaterDelegate: nil,
+                                                                 userDriverDelegate: nil)
 
     private let license = MullionLicense.shared
     private let inventory = AccessibilityWindowInventory()
