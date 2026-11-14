@@ -20,8 +20,7 @@ enum MullionEntitlement: Equatable {
 
 /// Coordinates trial, activation, refresh, and entitlement for Mullion.
 ///
-/// - Staging by default during integration: https://staging.api.asifthatworks.com
-/// - Production: https://api.asifthatworks.com (switch when service is live)
+/// Production direct-download licensing: https://api.asifthatworks.com
 @MainActor
 final class MullionLicense: ObservableObject {
     static let shared = MullionLicense()
@@ -40,10 +39,10 @@ final class MullionLicense: ObservableObject {
     private var refreshTask: Task<Void, Never>?
 
     private init() {
-        let staging = URL(string: "https://staging.api.asifthatworks.com")!
+        let baseURL = URL(string: "https://api.asifthatworks.com")!
         let publicKey = Data(base64URLEncoded: "HLmuY4Pcli5XDVFTwZOe5II4ouW8bNIIZMPaU5dHaO0")!
         self.configuration = LicenseConfiguration(
-            baseURL: staging,
+            baseURL: baseURL,
             productID: "mullion",
             keyPrefix: "MULL",
             appMajorVersion: 1,

@@ -11,12 +11,10 @@ product-specific license server.
 
 ## Endpoints
 
-| Environment | Base URL | Service | Status |
+| Environment | Base URL | Service | Notes |
 |---|---|---|---|
-| Production (frozen) | `https://api.asifthatworks.com` | `127.0.0.1:8090` | DNS/TLS live, **service is still a placeholder** |
-| Staging | `https://staging.api.asifthatworks.com` | `127.0.0.1:8091` | **Live** (verified locally) |
-
-Use **staging** for all integration and testing until production is switched.
+| Production (frozen) | `https://api.asifthatworks.com` | `127.0.0.1:8090` | **Mullion 1.0.0 direct-download builds use production** (`POST /v1/activate|refresh|deactivate`, `license_key`, `install_id`, `app_version`, `os_version`). Confirm real service cutover before distributing. |
+| Staging | `https://staging.api.asifthatworks.com` | `127.0.0.1:8091` | **Live** — use for integration/sandbox testing and activation verification with test keys. |
 
 - `POST /v1/activate`
 - `POST /v1/refresh` (returns `410` on revoked/expired)
@@ -69,7 +67,7 @@ bytes). Verify with the product public key. 30-day offline grace on network fail
 | Bundle ID | `com.kyanhpham.mullion` |
 | URL scheme | `mullion://` |
 | Trial | 14 days |
-| Plan | `pro` (one-time, 3 seats, `major: 1`) |
+| Plan | `pro` (one-time, €11.11, 3 seats, `major: 1`) |
 | `kid` | `mull-2026-01` |
 | Public key (Ed25519, base64url) | `HLmuY4Pcli5XDVFTwZOe5II4ouW8bNIIZMPaU5dHaO0` |
 

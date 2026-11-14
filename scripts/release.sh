@@ -58,6 +58,8 @@ xcodebuild archive \
     -configuration Release \
     -archivePath "$ARCHIVE" \
     -destination "generic/platform=macOS" \
+    ARCHS="arm64 x86_64" \
+    ONLY_ACTIVE_ARCH=NO \
     DEVELOPMENT_TEAM="$TEAM_ID" \
     CODE_SIGN_STYLE=Manual \
     CODE_SIGN_IDENTITY="$SIGN_ID" \
