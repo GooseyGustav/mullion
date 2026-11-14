@@ -68,8 +68,8 @@ bytes). Verify with the product public key. 30-day offline grace on network fail
 | URL scheme | `mullion://` |
 | Trial | 14 days |
 | Plan | `pro` (one-time, €11.11, 3 seats, `major: 1`) |
-| `kid` | `mull-2026-01` |
-| Public key (Ed25519, base64url) | `HLmuY4Pcli5XDVFTwZOe5II4ouW8bNIIZMPaU5dHaO0` |
+| `kid` | `mull-2026-02` |
+| Public key (Ed25519, base64url) | `u4MubZSoX_GIzB8yFgWV6FwCBoAVofLq4d2_-qsY_hk` |
 
 Embed the public key in the app and verify `LIC1.<payload_b64url>.<signature_b64url>`
 over the exact payload bytes. Refresh on `410` means revoked/expired now; network

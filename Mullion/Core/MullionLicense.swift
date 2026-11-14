@@ -40,13 +40,13 @@ final class MullionLicense: ObservableObject {
 
     private init() {
         let baseURL = URL(string: "https://api.asifthatworks.com")!
-        let publicKey = Data(base64URLEncoded: "HLmuY4Pcli5XDVFTwZOe5II4ouW8bNIIZMPaU5dHaO0")!
+        let publicKey = Data(base64URLEncoded: "u4MubZSoX_GIzB8yFgWV6FwCBoAVofLq4d2_-qsY_hk")!
         self.configuration = LicenseConfiguration(
             baseURL: baseURL,
             productID: "mullion",
             keyPrefix: "MULL",
             appMajorVersion: 1,
-            publicKeys: ["mull-2026-01": publicKey],
+            publicKeys: ["mull-2026-02": publicKey],
             bundleID: "com.kyanhpham.mullion"
         )
         // LicenseManager init can throw only on bad public key data; key is valid.
