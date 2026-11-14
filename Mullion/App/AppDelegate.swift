@@ -10,15 +10,19 @@ import ScreenCaptureKit
 ///                                             │          └──▶ ThumbnailProvider ──▶ ScreenCaptureKit
 ///                                             ▼
 ///                                       SwitcherPanel ──▶ WindowActivator
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var accessibilityItem: NSMenuItem?
     private var screenRecordingItem: NSMenuItem?
+    private var licenseItem: NSMenuItem?
+    private var licenseWindowController: LicenseWindowController?
 
+    private let license = MullionLicense.shared
     private let inventory = AccessibilityWindowInventory()
     private lazy var switcher = SwitcherController(inventory: inventory)
     private lazy var eventTap = EventTap { [weak self] event in
-        self?.switcher.handleGlobal(event) ?? false
+        self?.handleGlobal(event) ?? false
     }
     /// Only used when the session tap cannot be created (no Accessibility).
     private let fallbackHotkey = HotkeyMonitor(keyCode: HotkeyMonitor.KeyCode.tab,
@@ -28,6 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppLog.write("launch bundle=\(Bundle.main.bundlePath)")
         AppLog.write(AppLog.permissionSnapshot("startup"))
 
+        installURLHandler()
         installStatusItem()
         // Closes over the controller, so start the tap after both exist.
         _ = switcher
@@ -42,7 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if self.switcher.isVisible {
                     self.switcher.cycle(by: 1)
                 } else {
-                    self.switcher.show()
+                    self.requestShowSwitcher()
                 }
             }
             fallbackHotkey.register()
@@ -58,6 +63,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         refreshPermissionItems()
         AppLog.write(AppLog.permissionSnapshot("after-requests"))
 
+        license.refreshInBackground()
+
         // An app only appears in the Screen Recording pane after it actually tries to
         // capture. Probe once at launch so the entry is registered even if the user
         // never opens the switcher first.
@@ -71,6 +78,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let count = inventory.windows().count
             AppLog.write(String(format: "inventory prewarm windows=%d ms=%.0f", count,
                                 Date().timeIntervalSince(started) * 1000))
+        }
+
+        NotificationCenter.default.addObserver(forName: .mullionShowLicenseWindow, object: nil, queue: .main) { [weak self] _ in
+            self?.showLicenseWindow()
+        }
+        NotificationCenter.default.addObserver(forName: .mullionEntitlementChanged, object: nil, queue: .main) { [weak self] _ in
+            self?.refreshPermissionItems()
+        }
+    }
+
+    /// Gates global switcher activation on entitlement, but forwards events to the
+    /// live switcher when it is already visible so commit/cycle/close still work.
+    private func handleGlobal(_ event: EventTap.Event) -> Bool {
+        if switcher.isVisible {
+            return switcher.handleGlobal(event)
+        }
+        guard case .keyDown(let code, let flags) = event,
+              code == 48, flags.contains(.maskCommand) else { return false }
+        DispatchQueue.main.async { [weak self] in self?.requestShowSwitcher() }
+        return true
+    }
+
+    private func requestShowSwitcher() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.license.reevaluate()
+            if self.license.entitlement.canUseSwitcher {
+                self.switcher.show()
+            } else {
+                self.showLicenseWindow()
+            }
         }
     }
 
@@ -117,6 +155,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         fallbackHotkey.unregister()
     }
 
+    // MARK: - URL / license
+
+    private func installURLHandler() {
+        NSAppleEventManager.shared().setEventHandler(
+            self,
+            andSelector: #selector(handleGetURLEvent(_:withReply:)),
+            forEventClass: AEEventClass(kInternetEventClass),
+            andEventID: AEEventID(kAEGetURL)
+        )
+    }
+
+    @objc @MainActor private func handleGetURLEvent(_ event: NSAppleEventDescriptor, withReply reply: NSAppleEventDescriptor) {
+        guard let string = event.paramDescriptor(forKeyword: keyDirectObject)?.stringValue,
+              let url = URL(string: string) else { return }
+        license.handle(url: url)
+        showLicenseWindow()
+    }
+
+    @MainActor func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            license.handle(url: url)
+        }
+        if !urls.isEmpty { showLicenseWindow() }
+    }
+
+    @objc private func showLicenseWindow() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            await self.license.reevaluate()
+            if self.licenseWindowController == nil {
+                self.licenseWindowController = LicenseWindowController(license: self.license)
+            }
+            self.licenseWindowController?.showWindow(nil)
+            NSApp.activate(ignoringOtherApps: true)
+            self.refreshPermissionItems()
+        }
+    }
+
     // MARK: - Menu bar
 
     private func installStatusItem() {
@@ -129,6 +205,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Show Switcher  (⌘⇥)",
                      action: #selector(showSwitcher),
                      keyEquivalent: "")
+        menu.addItem(.separator())
+
+        licenseItem = menu.addItem(withTitle: "License…",
+                                   action: #selector(openLicense),
+                                   keyEquivalent: "")
         menu.addItem(.separator())
 
         accessibilityItem = menu.addItem(withTitle: "Accessibility",
@@ -145,10 +226,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         item.menu = menu
         statusItem = item
+        refreshPermissionItems()
     }
 
     @objc private func showSwitcher() {
-        switcher.show()
+        requestShowSwitcher()
+    }
+
+    @objc private func openLicense() {
+        showLicenseWindow()
     }
 
     @objc private func openAccessibilitySettings() {
@@ -161,12 +247,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Permissions.openScreenRecordingSettings()
     }
 
-    private func refreshPermissionItems() {
+    @MainActor private func refreshPermissionItems() {
         accessibilityItem?.title = Permissions.hasAccessibility
             ? "Accessibility: granted"
             : "Accessibility: needed — click to open Settings…"
         screenRecordingItem?.title = Permissions.hasScreenRecording
             ? "Screen Recording: granted"
             : "Screen Recording: needed — click to open Settings…"
+        switch license.entitlement {
+        case .licensed:
+            licenseItem?.title = "License: Active"
+        case .trial(let days):
+            licenseItem?.title = "License: Trial (\(days)d left)…"
+        case .expired:
+            licenseItem?.title = "License: Trial ended — Activate…"
+        case .revoked:
+            licenseItem?.title = "License: Revoked — Activate…"
+        case .needsActivation(let msg):
+            licenseItem?.title = msg ?? "License: Activate…"
+        }
     }
 }

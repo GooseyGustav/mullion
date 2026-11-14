@@ -14,6 +14,11 @@ settings:
     DEVELOPMENT_TEAM: NZJ6XP9B66
     ENABLE_HARDENED_RUNTIME: YES
 
+packages:
+  LicenseKit:
+    url: https://github.com/GooseyGustav/asifthatworks-licensekit.git
+    branch: main
+
 targets:
   Mullion:
     type: application
@@ -22,6 +27,9 @@ targets:
       - path: Mullion
         excludes:
           - "Resources/Info.plist"
+    dependencies:
+      - package: LicenseKit
+        product: LicenseKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.kyanhpham.mullion
